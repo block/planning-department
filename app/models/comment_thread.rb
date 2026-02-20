@@ -14,6 +14,22 @@ class CommentThread < ApplicationRecord
 
   scope :open_threads, -> { where(status: "open") }
   scope :current, -> { where(out_of_date: false) }
+  scope :active, -> { where(status: "open", out_of_date: false) }
+  scope :archived, -> { where("status != 'open' OR out_of_date = ?", true) }
+
+  def self.mark_out_of_date_for_new_version!(new_version)
+    content = new_version.content_markdown || ""
+    threads = where(out_of_date: false).where.not(plan_version_id: new_version.id)
+    threads.find_each do |thread|
+      next unless thread.anchored?
+      next if content.include?(thread.anchor_text)
+
+      thread.update_columns(
+        out_of_date: true,
+        out_of_date_since_version_id: new_version.id
+      )
+    end
+  end
 
   def anchored?
     anchor_text.present?

@@ -1,7 +1,7 @@
 import { Controller } from "@hotwired/stimulus"
 
 export default class extends Controller {
-  static targets = ["content", "popover", "form", "anchorInput", "anchorPreview", "anchorQuote"]
+  static targets = ["content", "popover", "form", "anchorInput", "contextInput", "anchorPreview", "anchorQuote"]
   static values = { planId: String }
 
   connect() {
@@ -45,6 +45,7 @@ export default class extends Controller {
     }
 
     this.selectedText = text
+    this.selectedContext = this.extractContext(range, text)
 
     // Position popover near the selection
     const rect = range.getBoundingClientRect()
@@ -59,8 +60,9 @@ export default class extends Controller {
     event.preventDefault()
     if (!this.selectedText) return
 
-    // Set the anchor text
+    // Set the anchor text and surrounding context
     this.anchorInputTarget.value = this.selectedText
+    this.contextInputTarget.value = this.selectedContext || ""
     this.anchorQuoteTarget.textContent = this.selectedText.length > 120
       ? this.selectedText.substring(0, 120) + "…"
       : this.selectedText
@@ -85,8 +87,10 @@ export default class extends Controller {
     event.preventDefault()
     this.formTarget.style.display = "none"
     this.anchorInputTarget.value = ""
+    this.contextInputTarget.value = ""
     this.anchorPreviewTarget.style.display = "none"
     this.selectedText = null
+    this.selectedContext = null
   }
 
   scrollToAnchor(event) {
@@ -105,19 +109,115 @@ export default class extends Controller {
     }
   }
 
+  extractContext(range, selectedText) {
+    // Grab surrounding text for disambiguation
+    const fullText = this.contentTarget.textContent
+    const selIndex = fullText.indexOf(selectedText)
+    if (selIndex === -1) return selectedText
+
+    // Find ALL occurrences — if unique, no context needed
+    let count = 0
+    let pos = -1
+    while ((pos = fullText.indexOf(selectedText, pos + 1)) !== -1) count++
+    if (count === 1) return ""
+
+    // Multiple occurrences — find which one by using the range's position
+    // Grab ~100 chars before and after for a unique context
+    const contextBefore = 100
+    const contextAfter = 100
+
+    // Use the range to figure out offset in the text content
+    const preRange = document.createRange()
+    preRange.setStart(this.contentTarget, 0)
+    preRange.setEnd(range.startContainer, range.startOffset)
+    const offset = preRange.toString().length
+
+    const start = Math.max(0, offset - contextBefore)
+    const end = Math.min(fullText.length, offset + selectedText.length + contextAfter)
+    return fullText.slice(start, end)
+  }
+
   highlightAnchors() {
-    // Find all threads with anchor text and highlight them
+    // Build full text once for position lookups
+    this.fullText = this.contentTarget.textContent
+
     const threads = this.element.querySelectorAll("[data-anchor-text]")
     threads.forEach(thread => {
       const anchor = thread.dataset.anchorText
+      const context = thread.dataset.anchorContext
       if (anchor && anchor.length > 0) {
-        this.findAndHighlight(anchor, "anchor-highlight")
+        this.findAndHighlightWithContext(anchor, context, "anchor-highlight")
       }
+    })
+
+    this.positionThreads()
+  }
+
+  positionThreads() {
+    const allThreads = Array.from(this.element.querySelectorAll(".comment-thread"))
+    const sidebar = this.element.querySelector(".plan-layout__sidebar")
+    if (!sidebar || allThreads.length === 0) return
+
+    const sidebarRect = sidebar.getBoundingClientRect()
+    const gap = 8
+    let cursor = 0
+
+    allThreads.forEach(thread => {
+      const anchor = thread.dataset.anchorText
+      let desiredY = cursor
+
+      if (anchor && anchor.length > 0) {
+        const mark = thread._highlightMark
+        if (mark) {
+          desiredY = mark.getBoundingClientRect().top - sidebarRect.top + sidebar.scrollTop
+        }
+      }
+
+      const y = Math.max(desiredY, cursor)
+      thread.style.marginTop = `${y - cursor}px`
+      cursor = y + thread.offsetHeight + gap
     })
   }
 
-  findAndHighlight(text, className) {
-    if (!text || text.length === 0) return null
+  findAndHighlightWithContext(text, context, className) {
+    // Use context to find the right occurrence of the anchor text
+    const fullText = this.fullText
+    let targetIndex
+
+    if (context && context.length > 0) {
+      const contextIndex = fullText.indexOf(context)
+      if (contextIndex !== -1) {
+        // Find the anchor text within the context region
+        targetIndex = fullText.indexOf(text, contextIndex)
+        if (targetIndex === -1 || targetIndex > contextIndex + context.length) {
+          targetIndex = fullText.indexOf(text) // fallback
+        }
+      } else {
+        targetIndex = fullText.indexOf(text)
+      }
+    } else {
+      targetIndex = fullText.indexOf(text)
+    }
+
+    if (targetIndex === -1) return null
+
+    // Find the thread element to store the mark reference
+    const threads = this.element.querySelectorAll(".comment-thread[data-anchor-text]")
+    let threadEl = null
+    for (const t of threads) {
+      if (t.dataset.anchorText === text && t.dataset.anchorContext === (context || "")) {
+        threadEl = t
+        break
+      }
+    }
+
+    const mark = this.highlightAtIndex(targetIndex, text.length, className)
+    if (mark && threadEl) threadEl._highlightMark = mark
+    return mark
+  }
+
+  highlightAtIndex(startIndex, length, className) {
+    if (startIndex < 0 || length <= 0) return null
 
     const walker = document.createTreeWalker(
       this.contentTarget,
@@ -126,7 +226,6 @@ export default class extends Controller {
       false
     )
 
-    // Collect all text nodes and their positions
     const textNodes = []
     let fullText = ""
     let node
@@ -135,27 +234,19 @@ export default class extends Controller {
       fullText += node.textContent
     }
 
-    // Find the text in the concatenated content
-    const index = fullText.indexOf(text)
-    if (index === -1) return null
-
-    // Find which text nodes contain the match
-    const matchEnd = index + text.length
+    const matchEnd = startIndex + length
     let firstHighlighted = null
 
     for (let i = 0; i < textNodes.length; i++) {
       const tn = textNodes[i]
       const nodeEnd = tn.start + tn.node.textContent.length
 
-      // Skip nodes before the match
-      if (nodeEnd <= index) continue
-      // Stop after the match
+      if (nodeEnd <= startIndex) continue
       if (tn.start >= matchEnd) break
 
-      const localStart = Math.max(0, index - tn.start)
+      const localStart = Math.max(0, startIndex - tn.start)
       const localEnd = Math.min(tn.node.textContent.length, matchEnd - tn.start)
 
-      // Split the text node and wrap the matching part
       const range = document.createRange()
       range.setStart(tn.node, localStart)
       range.setEnd(tn.node, localEnd)
@@ -168,5 +259,14 @@ export default class extends Controller {
     }
 
     return firstHighlighted
+  }
+
+  // Keep legacy method for scrollToAnchor (single-use highlight)
+  findAndHighlight(text, className) {
+    if (!text || text.length === 0) return null
+    const fullText = this.contentTarget.textContent
+    const index = fullText.indexOf(text)
+    if (index === -1) return null
+    return this.highlightAtIndex(index, text.length, className)
   }
 }

@@ -3,8 +3,7 @@ roadmap_thread:
   plan_id: "00000000-0000-0000-0000-000000000101"
   organization_id: "00000000-0000-0000-0000-000000000001"
   plan_version_id: "00000000-0000-0000-0000-000000000201"
-  start_line: 5
-  end_line: 8
+  anchor_text: "original roadmap text"
   status: "open"
   out_of_date: false
   created_by_user_id: "00000000-0000-0000-0000-000000000012"

@@ -9,7 +9,9 @@ class PlansController < ApplicationController
 
   def show
     authorize!(@plan, :show?)
-    @comment_threads = @plan.comment_threads.includes(:comments, :created_by_user, :plan_version).order(created_at: :desc)
+    threads = @plan.comment_threads.includes(:comments, :created_by_user, :plan_version).order(created_at: :asc)
+    @active_threads = threads.select { |t| t.status == "open" && !t.out_of_date? }
+    @archived_threads = threads.reject { |t| t.status == "open" && !t.out_of_date? }
   end
 
   def edit
@@ -35,10 +37,7 @@ class PlansController < ApplicationController
       current_revision: version.revision
     )
 
-    @plan.comment_threads.where(out_of_date: false).where.not(plan_version_id: version.id).update_all(
-      out_of_date: true,
-      out_of_date_since_version_id: version.id
-    )
+    @plan.comment_threads.mark_out_of_date_for_new_version!(version)
 
     broadcast_plan_update(@plan)
     redirect_to plan_path(@plan), notice: "Plan updated."
