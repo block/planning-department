@@ -14,7 +14,9 @@ class CommentThreadTest < ActiveSupport::TestCase
   end
 
   test "line_specific? returns true when lines set" do
-    thread = comment_threads(:roadmap_thread)
+    thread = comment_threads(:general_thread)
+    thread.start_line = 5
+    thread.end_line = 8
     assert thread.line_specific?
   end
 
@@ -24,12 +26,14 @@ class CommentThreadTest < ActiveSupport::TestCase
   end
 
   test "line_range_text for range" do
-    thread = comment_threads(:roadmap_thread)
+    thread = comment_threads(:general_thread)
+    thread.start_line = 5
+    thread.end_line = 8
     assert_equal "Lines 5–8", thread.line_range_text
   end
 
   test "line_range_text for single line" do
-    thread = comment_threads(:roadmap_thread)
+    thread = comment_threads(:general_thread)
     thread.start_line = 5
     thread.end_line = 5
     assert_equal "Line 5", thread.line_range_text
@@ -72,7 +76,6 @@ class CommentThreadTest < ActiveSupport::TestCase
 
   test "anchored? returns true when anchor_text set" do
     thread = comment_threads(:roadmap_thread)
-    thread.anchor_text = "world domination"
     assert thread.anchored?
   end
 

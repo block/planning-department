@@ -16,11 +16,10 @@
       </div>
 
       <div class="plan-layout__sidebar">
-        <h3 class="sidebar-heading">Comments</h3>
-
         <div class="comment-form card" id="new-comment-form" data-text-selection-target="form" style="display: none;">
           <%= form_with url: plan_comment_threads_path(@plan), method: :post do |f| %>
             <input type="hidden" name="comment_thread[anchor_text]" data-text-selection-target="anchorInput" value="">
+            <input type="hidden" name="comment_thread[anchor_context]" data-text-selection-target="contextInput" value="">
             <div class="comment-form__anchor" data-text-selection-target="anchorPreview" style="display: none;">
               <span class="text-sm text-muted">Commenting on:</span>
               <blockquote class="comment-form__quote" data-text-selection-target="anchorQuote"></blockquote>
@@ -35,13 +34,37 @@
           <% end %>
         </div>
 
-        <div class="comment-threads-list" id="comment-threads">
-          <% @comment_threads.each do |thread| %>
-            <%= render partial: "comment_threads/thread", locals: { thread: thread, plan: @plan, current_user: current_user } %>
-          <% end %>
-          <% if @comment_threads.empty? %>
-            <p class="text-sm text-muted">No comments yet.</p>
-          <% end %>
+        <div class="comment-tabs" data-controller="tabs" data-tabs-active-class="comment-tab--active">
+          <div class="comment-tabs__nav">
+            <button class="comment-tab comment-tab--active" data-tabs-target="tab" data-action="tabs#switch" data-index="0">
+              Open <% if @active_threads.any? %><span class="comment-tab__count"><%= @active_threads.size %></span><% end %>
+            </button>
+            <button class="comment-tab" data-tabs-target="tab" data-action="tabs#switch" data-index="1">
+              Resolved <% if @archived_threads.any? %><span class="comment-tab__count"><%= @archived_threads.size %></span><% end %>
+            </button>
+          </div>
+
+          <div class="comment-tabs__panel" data-tabs-target="panel">
+            <div class="comment-threads-list" id="comment-threads">
+              <% @active_threads.each do |thread| %>
+                <%= render partial: "comment_threads/thread", locals: { thread: thread, plan: @plan, current_user: current_user } %>
+              <% end %>
+              <% if @active_threads.empty? %>
+                <p class="text-sm text-muted">No open comments.</p>
+              <% end %>
+            </div>
+          </div>
+
+          <div class="comment-tabs__panel" data-tabs-target="panel" style="display: none;">
+            <div class="comment-threads-list">
+              <% @archived_threads.each do |thread| %>
+                <%= render partial: "comment_threads/thread", locals: { thread: thread, plan: @plan, current_user: current_user } %>
+              <% end %>
+              <% if @archived_threads.empty? %>
+                <p class="text-sm text-muted">No resolved comments.</p>
+              <% end %>
+            </div>
+          </div>
         </div>
       </div>
     </div>

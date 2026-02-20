@@ -65,10 +65,7 @@ module Api
           current_revision: new_revision
         )
 
-        @plan.comment_threads.where(out_of_date: false).where.not(plan_version_id: version.id).update_all(
-          out_of_date: true,
-          out_of_date_since_version_id: version.id
-        )
+        @plan.comment_threads.mark_out_of_date_for_new_version!(version)
 
         broadcast_plan_update
 
