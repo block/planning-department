@@ -113,7 +113,7 @@ export default class extends Controller {
     // Grab surrounding text for disambiguation
     const fullText = this.contentTarget.textContent
     const selIndex = fullText.indexOf(selectedText)
-    if (selIndex === -1) return selectedText
+    if (selIndex === -1) return ""
 
     // Find ALL occurrences — if unique, no context needed
     let count = 0
@@ -126,15 +126,30 @@ export default class extends Controller {
     const contextBefore = 100
     const contextAfter = 100
 
-    // Use the range to figure out offset in the text content
-    const preRange = document.createRange()
-    preRange.setStart(this.contentTarget, 0)
-    preRange.setEnd(range.startContainer, range.startOffset)
-    const offset = preRange.toString().length
+    // Use a DOM-based walk to figure out the offset in the text content
+    const offset = this.getSelectionOffset(range)
 
     const start = Math.max(0, offset - contextBefore)
     const end = Math.min(fullText.length, offset + selectedText.length + contextAfter)
     return fullText.slice(start, end)
+  }
+
+  getSelectionOffset(range) {
+    if (!range || !this.contentTarget) return 0
+
+    const walker = document.createTreeWalker(this.contentTarget, NodeFilter.SHOW_TEXT, null)
+    let offset = 0
+    let node
+
+    while ((node = walker.nextNode())) {
+      if (range.startContainer === node) {
+        offset += range.startOffset
+        break
+      }
+      offset += node.textContent.length
+    }
+
+    return offset
   }
 
   highlightAnchors() {
