@@ -664,6 +664,18 @@ img, svg {
   width: 22rem;
 }
 
+/* Responsive adjustments for narrow viewports */
+@media (max-width: 900px) {
+  .plan-layout__content {
+    max-width: 100%;
+  }
+
+  .plan-layout__sidebar {
+    position: static;
+    width: 100%;
+    margin-top: var(--space-lg);
+  }
+}
 .sidebar-heading {
   font-size: var(--text-lg);
   font-weight: 700;
