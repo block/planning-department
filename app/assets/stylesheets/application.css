@@ -664,7 +664,6 @@ img, svg {
   width: 22rem;
 }
 
-/* Responsive adjustments for narrow viewports */
 @media (max-width: 900px) {
   .plan-layout__content {
     max-width: 100%;
@@ -723,10 +722,6 @@ img, svg {
 .comment-tab--active .comment-tab__count {
   background: var(--color-primary);
   color: white;
-}
-
-/* Comment threads list */
-.comment-threads-list {
 }
 
 /* Comment form */

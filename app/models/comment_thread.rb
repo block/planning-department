@@ -22,7 +22,11 @@ class CommentThread < ApplicationRecord
     threads = where(out_of_date: false).where.not(plan_version_id: new_version.id)
     threads.find_each do |thread|
       next unless thread.anchored?
-      next if content.include?(thread.anchor_text)
+      if thread.anchor_context.present?
+        next if content.include?(thread.anchor_context)
+      else
+        next if content.include?(thread.anchor_text)
+      end
 
       thread.update_columns(
         out_of_date: true,

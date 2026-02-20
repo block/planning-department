@@ -95,4 +95,113 @@ class CommentThreadTest < ActiveSupport::TestCase
     thread.anchor_text = "short text"
     assert_equal "short text", thread.anchor_preview
   end
+
+  test "active scope returns open non-out-of-date threads" do
+    plan = plans(:acme_roadmap)
+    active = plan.comment_threads.active
+    assert active.all? { |t| t.status == "open" && !t.out_of_date? }
+  end
+
+  test "active scope excludes resolved threads" do
+    thread = comment_threads(:roadmap_thread)
+    thread.resolve!(users(:alice))
+    active = plans(:acme_roadmap).comment_threads.active
+    assert_not active.include?(thread)
+  end
+
+  test "active scope excludes out-of-date threads" do
+    thread = comment_threads(:roadmap_thread)
+    thread.update_columns(out_of_date: true)
+    active = plans(:acme_roadmap).comment_threads.active
+    assert_not active.include?(thread)
+  end
+
+  test "archived scope returns non-open or out-of-date threads" do
+    plan = plans(:acme_roadmap)
+    archived = plan.comment_threads.archived
+    assert archived.all? { |t| t.status != "open" || t.out_of_date? }
+  end
+
+  test "archived scope includes resolved threads" do
+    thread = comment_threads(:roadmap_thread)
+    thread.resolve!(users(:alice))
+    archived = plans(:acme_roadmap).comment_threads.archived
+    assert archived.include?(thread)
+  end
+
+  test "mark_out_of_date_for_new_version! keeps thread when anchor text still present" do
+    plan = plans(:acme_roadmap)
+    thread = comment_threads(:roadmap_thread)
+    thread.update_columns(anchor_text: "world domination")
+
+    new_version = PlanVersion.create!(
+      plan: plan,
+      organization: plan.organization,
+      revision: 2,
+      content_markdown: "# Acme Roadmap\n\nOur plan for world domination continues.",
+      actor_type: "human",
+      actor_id: users(:alice).id
+    )
+
+    plan.comment_threads.mark_out_of_date_for_new_version!(new_version)
+    thread.reload
+    assert_not thread.out_of_date?
+  end
+
+  test "mark_out_of_date_for_new_version! marks thread when anchor text removed" do
+    plan = plans(:acme_roadmap)
+    thread = comment_threads(:roadmap_thread)
+    thread.update_columns(anchor_text: "world domination")
+
+    new_version = PlanVersion.create!(
+      plan: plan,
+      organization: plan.organization,
+      revision: 2,
+      content_markdown: "# Acme Roadmap\n\nCompletely new content here.",
+      actor_type: "human",
+      actor_id: users(:alice).id
+    )
+
+    plan.comment_threads.mark_out_of_date_for_new_version!(new_version)
+    thread.reload
+    assert thread.out_of_date?
+    assert_equal new_version.id, thread.out_of_date_since_version_id
+  end
+
+  test "mark_out_of_date_for_new_version! skips non-anchored threads" do
+    plan = plans(:acme_roadmap)
+    thread = comment_threads(:general_thread)
+
+    new_version = PlanVersion.create!(
+      plan: plan,
+      organization: plan.organization,
+      revision: 2,
+      content_markdown: "Completely different content.",
+      actor_type: "human",
+      actor_id: users(:alice).id
+    )
+
+    plan.comment_threads.mark_out_of_date_for_new_version!(new_version)
+    thread.reload
+    assert_not thread.out_of_date?
+  end
+
+  test "mark_out_of_date_for_new_version! uses anchor_context when present" do
+    plan = plans(:acme_roadmap)
+    thread = comment_threads(:roadmap_thread)
+    thread.update_columns(anchor_text: "plan", anchor_context: "Our plan for world domination")
+
+    new_version = PlanVersion.create!(
+      plan: plan,
+      organization: plan.organization,
+      revision: 2,
+      content_markdown: "# Acme Roadmap\n\nWe have a plan but the context changed.",
+      actor_type: "human",
+      actor_id: users(:alice).id
+    )
+
+    plan.comment_threads.mark_out_of_date_for_new_version!(new_version)
+    thread.reload
+    assert thread.out_of_date?, "Thread should be out of date when anchor_context is no longer in content"
+  end
 end
