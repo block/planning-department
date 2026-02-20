@@ -1,0 +1,17 @@
+<% content_for(:title) { "Sign In — Planning Department" } %>
+
+<div class="sign-in-page">
+  <div class="sign-in-card card">
+    <h1>Planning Department</h1>
+    <p class="text-muted text-sm">Sign in with your work email</p>
+
+    <%= form_with url: sign_in_path, method: :post, class: "sign-in-form" do |f| %>
+      <div class="form-group">
+        <%= f.label :email, "Email address" %>
+        <%= f.email_field :email, autofocus: true, required: true, placeholder: "you@company.com" %>
+      </div>
+
+      <%= f.submit "Sign In", class: "btn btn--primary sign-in-submit" %>
+    <% end %>
+  </div>
+</div>

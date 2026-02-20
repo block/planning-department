@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title><%= content_for(:title) || "Planning Department" %></title>
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="application-name" content="Planning Department">
+    <meta name="mobile-web-app-capable" content="yes">
+    <%= csrf_meta_tags %>
+    <%= csp_meta_tag %>
+
+    <%= yield :head %>
+
+    <link rel="icon" href="/icon.png" type="image/png">
+    <link rel="icon" href="/icon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="/icon.png">
+
+    <%= stylesheet_link_tag :app, "data-turbo-track": "reload" %>
+    <%= javascript_importmap_tags %>
+  </head>
+
+  <body>
+    <nav class="site-nav">
+      <div class="site-nav__inner">
+        <%= link_to "📋 Planning Department", root_path, class: "site-nav__brand" %>
+
+        <ul class="site-nav__links">
+          <% if signed_in? %>
+            <li><%= link_to "Plans", plans_path %></li>
+            <li><%= link_to "API Tokens", api_tokens_path %></li>
+          <% end %>
+          <%# TODO: Phase 8.2 — Notifications bell %>
+        </ul>
+
+        <% if signed_in? %>
+          <div class="site-nav__user">
+            <span><%= current_user.name %></span>
+            <%= link_to "Sign out", sign_out_path, data: { turbo_method: :delete } %>
+          </div>
+        <% end %>
+      </div>
+    </nav>
+
+    <main class="main-content">
+      <% if notice.present? %>
+        <div class="flash flash--notice"><%= notice %></div>
+      <% end %>
+      <% if alert.present? %>
+        <div class="flash flash--alert"><%= alert %></div>
+      <% end %>
+
+      <%= yield %>
+    </main>
+  </body>
+</html>

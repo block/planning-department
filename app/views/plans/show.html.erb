@@ -1,0 +1,53 @@
+<%= turbo_stream_from @plan %>
+
+<%= render partial: "plans/header", locals: { plan: @plan } %>
+
+<div class="plan-content card">
+  <% if @plan.current_content.present? %>
+    <div class="plan-layout" data-controller="text-selection" data-text-selection-plan-id-value="<%= @plan.id %>">
+      <div class="plan-layout__content" data-text-selection-target="content">
+        <%= render_markdown(@plan.current_content) %>
+
+        <div class="comment-popover" data-text-selection-target="popover" style="display: none;">
+          <button type="button" class="btn btn--primary btn--sm" data-action="text-selection#openCommentForm">
+            💬 Comment
+          </button>
+        </div>
+      </div>
+
+      <div class="plan-layout__sidebar">
+        <h3 class="sidebar-heading">Comments</h3>
+
+        <div class="comment-form card" id="new-comment-form" data-text-selection-target="form" style="display: none;">
+          <%= form_with url: plan_comment_threads_path(@plan), method: :post do |f| %>
+            <input type="hidden" name="comment_thread[anchor_text]" data-text-selection-target="anchorInput" value="">
+            <div class="comment-form__anchor" data-text-selection-target="anchorPreview" style="display: none;">
+              <span class="text-sm text-muted">Commenting on:</span>
+              <blockquote class="comment-form__quote" data-text-selection-target="anchorQuote"></blockquote>
+            </div>
+            <div class="form-group">
+              <textarea name="comment_thread[body_markdown]" id="comment_thread_body_markdown" rows="3" placeholder="Write a comment..." required></textarea>
+            </div>
+            <div class="comment-form__actions">
+              <button type="submit" class="btn btn--primary btn--sm">Comment</button>
+              <button type="button" class="btn btn--secondary btn--sm" data-action="text-selection#cancelComment">Cancel</button>
+            </div>
+          <% end %>
+        </div>
+
+        <div class="comment-threads-list" id="comment-threads">
+          <% @comment_threads.each do |thread| %>
+            <%= render partial: "comment_threads/thread", locals: { thread: thread, plan: @plan, current_user: current_user } %>
+          <% end %>
+          <% if @comment_threads.empty? %>
+            <p class="text-sm text-muted">No comments yet.</p>
+          <% end %>
+        </div>
+      </div>
+    </div>
+  <% else %>
+    <div class="empty-state">
+      <p>This plan has no content yet.</p>
+    </div>
+  <% end %>
+</div>
